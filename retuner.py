@@ -57,21 +57,26 @@ def open_output(output_name):
         raise Exception("Could not find output device: " + output_name)
     midi_out = midi.Output(index)
     try:
-        midi_out.set_instrument(0)
+#        midi_out.set_instrument(0)
         yield midi_out
     finally:
         midi_out.close()
 
 
 def run(midi_in, midi_out):
+    channel = 0
     while True:
         events = midi_in.read(1)
         for event in events:
             [status, data1, data2, data3], ts = event
-            if status & 0xE0 == 0x80:
-                event[0][1] = 60
-            print(status, data1)
-        midi_out.write(events)
+            if status & 0xF0 == 0x90:  # down
+                channel = status & 0x0F
+                if data1 % 12 == 11:
+                    bend = -2048
+                else:
+                    bend = 0
+                midi_out.pitch_bend(bend, channel)
+            midi_out.write([event])
         sleep(0.001)
 
 
