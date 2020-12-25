@@ -14,8 +14,8 @@ def main():
     midi.init()
     try:
         config = read_settings()
-        with open_input(config.input_name) as midi_in, \
-             open_output(config.output_name) as midi_out:
+        with open_midi_device(config.input_name, "in") as midi_in, \
+             open_midi_device(config.output_name, "out") as midi_out:
             run(midi_in, midi_out)
     finally:
         midi.quit()
@@ -29,38 +29,24 @@ def read_settings():
 
 
 @contextmanager
-def open_input(input_name):
+def open_midi_device(device_name, direction):
     index = None
     for i in range(midi.get_count()):
-        _, name, is_input, _, _ = midi.get_device_info(i)
-        if is_input and name.decode("utf8") == input_name:
+        _, name, is_input, is_output, _ = midi.get_device_info(i)
+        name = name.decode("utf8")
+        if is_input and direction == "in" and name == device_name:
+            index = i
+            break
+        elif is_output and direction == "out" and name == device_name:
             index = i
             break
     else:
-        raise Exception("Could not find input device: " + input_name)
-    midi_in = midi.Input(index)
+        raise Exception("Could not find {} device: {}".format(direction, device_name))
+    midi_device = midi.Input(index) if direction == "in" else midi.Output(index)
     try:
-        yield midi_in
+        yield midi_device
     finally:
-        midi_in.close()
-
-
-@contextmanager
-def open_output(output_name):
-    index = None
-    for i in range(midi.get_count()):
-        _, name, _, is_output, _ = midi.get_device_info(i)
-        if is_output and name.decode("utf8") == output_name:
-            index = i
-            break
-    else:
-        raise Exception("Could not find output device: " + output_name)
-    midi_out = midi.Output(index)
-    try:
-#        midi_out.set_instrument(0)
-        yield midi_out
-    finally:
-        midi_out.close()
+        midi_device.close()
 
 
 def run(midi_in, midi_out):
