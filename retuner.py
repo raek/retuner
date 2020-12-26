@@ -2,23 +2,25 @@ from collections import namedtuple
 from contextlib import contextmanager
 import json
 import os
+import sys
 from time import sleep
 
 from pygame import midi
+
+
+class UserError(Exception):
+    pass
 
 
 Settings = namedtuple("Settings", "input_name, output_name")
 
 
 def main():
-    midi.init()
-    try:
-        config = read_settings()
-        with open_midi_device(config.input_name, "in") as midi_in, \
-             open_midi_device(config.output_name, "out") as midi_out:
-            run(midi_in, midi_out)
-    finally:
-        midi.quit()
+    config = read_settings()
+    with midi_inited(), \
+         open_midi_device(config.input_name, "in") as midi_in, \
+         open_midi_device(config.output_name, "out") as midi_out:
+        run(midi_in, midi_out)
 
 
 def read_settings():
@@ -29,24 +31,35 @@ def read_settings():
 
 
 @contextmanager
+def midi_inited():
+    midi.init()
+    try:
+        yield
+    finally:
+        midi.quit()
+
+
+@contextmanager
 def open_midi_device(device_name, direction):
-    index = None
-    for i in range(midi.get_count()):
-        _, name, is_input, is_output, _ = midi.get_device_info(i)
-        name = name.decode("utf8")
-        if is_input and direction == "in" and name == device_name:
-            index = i
-            break
-        elif is_output and direction == "out" and name == device_name:
-            index = i
-            break
-    else:
-        raise Exception("Could not find {} device: {}".format(direction, device_name))
-    midi_device = midi.Input(index) if direction == "in" else midi.Output(index)
+    assert direction in ["in", "out"]
+    index = find_midi_device(device_name, direction)
+    constructor = midi.Input if direction == "in" else midi.Output
+    midi_device = constructor(index)
     try:
         yield midi_device
     finally:
         midi_device.close()
+
+
+def find_midi_device(device_name, direction):
+    for index in range(midi.get_count()):
+        _, name, is_input, is_output, _ = midi.get_device_info(index)
+        name = name.decode("utf8")
+        if name == device_name:
+            if ((is_input and direction == "in") or
+                (is_output and direction == "out")):
+                return index
+    raise UserError("Could not find {} device: {}".format(direction.upper(), device_name))
 
 
 def run(midi_in, midi_out):
@@ -71,4 +84,8 @@ def run(midi_in, midi_out):
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except UserError as e:
+        print(e)
+        sys.exit(1)
