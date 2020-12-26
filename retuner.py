@@ -65,25 +65,42 @@ def find_midi_device(device_name, direction):
     raise UserError("Could not find {} device \"{}\"".format(direction.upper(), device_name))
 
 
+# We use pitch bend to retune the individual 12 notes, so then need to be
+# in their own channels (pitch bend acts on a whole channel).
+NOTE_TO_CHANNEL = list(range(0, 12))
+# MIDI Channel 10 (9 in protocol) is reserved for drums, so use 13 instead (12 in protocol).
+NOTE_TO_CHANNEL[9] = 12
+
+# A tuning is a mapping from note to difference from 12-TET in cents
+RAST_TUNING = [0] * 12
+RAST_TUNING[11] = -50
+
+
 def run(midi_in, midi_out):
-    channel = 0
+    apply_tuning(midi_out, RAST_TUNING)
     while True:
         events = midi_in.read(1)
-        for event in events:
-            [status, data1, data2, data3], ts = event
-            if status & 0xE0 == 0x80:  # down or up
-                channel = data1 % 12
-                if channel == 9:
-                    channel = 12
-                event[0][0] = (status & 0xF0) | channel
-            if status & 0xF0 == 0x90:  # down
-                if data1 % 12 == 11:
-                    bend = -2048
-                else:
-                    bend = 0
-                midi_out.pitch_bend(bend, channel)
-            midi_out.write([event])
+        for in_event in events:
+            out_event = remap_channel(in_event)
+            midi_out.write([out_event])
         sleep(0.001)
+
+
+def apply_tuning(midi_out, tuning):
+    for note, diff in enumerate(tuning):
+        channel = NOTE_TO_CHANNEL[note]
+        bend = round((diff * 4096) / 100)
+        midi_out.pitch_bend(bend, channel)
+
+
+def remap_channel(in_event):
+    [in_status, data1, data2, data3], ts = in_event
+    if in_status & 0xE0 == 0x80:  # down or up
+        channel = NOTE_TO_CHANNEL[data1 % 12]
+        out_status = (in_status & 0xF0) | channel
+    else:
+        out_status = in_status
+    return [[out_status, data1, data2, data3], ts]
 
 
 if __name__ == "__main__":
