@@ -75,9 +75,13 @@ NOTE_TO_CHANNEL[9] = 12
 RAST_TUNING = [0] * 12
 RAST_TUNING[11] = -50
 
+BAYATI_TUNING = [0] * 12
+BAYATI_TUNING[2] = -50
+BAYATI_TUNING[9] = 50
+
 
 def run(midi_in, midi_out):
-    apply_tuning(midi_out, RAST_TUNING)
+    apply_tuning(midi_out, BAYATI_TUNING)
     while True:
         events = midi_in.read(1)
         for in_event in events:
