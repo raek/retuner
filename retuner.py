@@ -55,8 +55,12 @@ def run(midi_in, midi_out):
         events = midi_in.read(1)
         for event in events:
             [status, data1, data2, data3], ts = event
+            if status & 0xE0 == 0x80:  # down or up
+                channel = data1 % 12
+                if channel == 9:
+                    channel = 12
+                event[0][0] = (status & 0xF0) | channel
             if status & 0xF0 == 0x90:  # down
-                channel = status & 0x0F
                 if data1 % 12 == 11:
                     bend = -2048
                 else:
