@@ -79,9 +79,25 @@ BAYATI_TUNING = [0] * 12
 BAYATI_TUNING[2] = -50
 BAYATI_TUNING[9] = 50
 
+# Pythagorean tuning with D as base note
+PYTHAGOREAN_TUNING = [
+    -3.91,
+    9.78,
+    0,
+    -9.78,
+    3.91,
+    -5.87,
+    7.82,
+    -1.96,
+    11.73,
+    1.96,
+    -7.82,
+    5.87,
+]
+
 
 def run(midi_in, midi_out):
-    apply_tuning(midi_out, BAYATI_TUNING)
+    apply_tuning(midi_out, PYTHAGOREAN_TUNING)
     while True:
         events = midi_in.read(1)
         for in_event in events:
