@@ -44,7 +44,10 @@ def open_midi_device(device_name, direction):
     assert direction in ["in", "out"]
     index = find_midi_device(device_name, direction)
     constructor = midi.Input if direction == "in" else midi.Output
-    midi_device = constructor(index)
+    try:
+        midi_device = constructor(index)
+    except midi.MidiException as e:
+        raise UserError("Could not open {} device \"{}\": {}".format(direction.upper(), device_name, str(e)))
     try:
         yield midi_device
     finally:
@@ -59,7 +62,7 @@ def find_midi_device(device_name, direction):
             if ((is_input and direction == "in") or
                 (is_output and direction == "out")):
                 return index
-    raise UserError("Could not find {} device: {}".format(direction.upper(), device_name))
+    raise UserError("Could not find {} device \"{}\"".format(direction.upper(), device_name))
 
 
 def run(midi_in, midi_out):
